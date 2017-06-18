@@ -1,0 +1,10 @@
+[package]
+name = "rust_testing"
+version = "0.1.0"
+authors = ["sponges <spongybacon@hotmail.co.uk>"]
+
+[dependencies]
+hyper = "0.10.12"
+hyper-native-tls = "0.2.4"
+byteorder = "1.0.0"
+base64 = "0.6.0"

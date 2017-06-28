@@ -4,6 +4,8 @@
 extern crate hyper;
 extern crate byteorder;
 extern crate base64;
+extern crate serde;
+#[macro_use] extern crate serde_json;
 
 use std::io::{Read, Write, Cursor, BufWriter, BufReader, SeekFrom};
 use std::io::prelude::*;
@@ -20,34 +22,48 @@ const TRACK_INFO_VERSION: u8 = 2;
 
 fn main() {
     // debug
-    let enc_cursor = read_file("encoded.txt");
-    println!("main enc_cursor={:?}", enc_cursor.get_ref());
+    //let enc_cursor = read_file("encoded.dab");
+    //println!("main enc_cursor={:?}", enc_cursor.get_ref());
     /*for c in enc_cursor.get_ref() {
         print!("{}", *c as char);
     }
     println!();*/
 
     // decoding an encoded audio track
-    let mut enc_cursor = read_file("encoded.txt");
-    decode_track(&mut enc_cursor);
+    //let mut enc_cursor = read_file("encoded.dab");
+    //decode_track(&mut enc_cursor);
 
     // encoding an audio track
-    encode_track(
+    /*encode_track(
         "Alan Walker - Fade [NCS Release]", // title
         "NCS", // author
-        264175, // duration
+        264175, // length
         "177671751", // identifier
         false, // stream
         "https://soundcloud.com/nocopyrightsounds/alan-walker-fade-ncs-release", // uri
         "soundcloud", // source
         0 // position
-    );
+    );*/
 
     // sending an empty tick to remote node for statistics
     let mut buf = vec![];
     let _ = buf.write_i32::<BigEndian>(0);
     let mut cursor = post_tick(&buf, buf.len());
     decode_statistics(&mut cursor);
+
+    let mut encoded = json_encode_track(
+        "Alan Walker - Fade [NCS Release]", // title
+        "NCS", // author
+        264175, // length
+        "177671751", // identifier
+        false, // stream
+        "https://soundcloud.com/nocopyrightsounds/alan-walker-fade-ncs-release", // uri
+        "soundcloud", // source
+        0 // position
+    );
+    println!("{:?}", encoded);
+    let _ = encoded.write_i32::<BigEndian>(0);
+    let mut cursor = post_tick(&encoded, encoded.len());
 }
 
 fn read_file(name: &str) -> Cursor<Vec<u8>> {
@@ -56,6 +72,13 @@ fn read_file(name: &str) -> Cursor<Vec<u8>> {
     let mut buf = vec![];
     let _ = rdr.read_to_end(&mut buf);
     Cursor::new(buf)
+}
+
+fn write_file(name: &str, content: &[u8]) {
+    let file = File::create(name).unwrap();
+    let mut buf = BufWriter::new(file);
+    let _ = buf.write(base64::encode(content).as_bytes());
+    buf.flush();
 }
 
 fn move_cursor(cursor: &mut Cursor<Vec<u8>>, steps: u64) {
@@ -84,26 +107,28 @@ fn read_string(cursor: &mut Cursor<Vec<u8>>) -> (String, usize) {
     (s, length)
 }
 
-fn encode_track(title: &str, author: &str, duration: i64, identifier: &str, stream: bool, uri: &str,
+fn encode_track(title: &str, author: &str, length: i64, identifier: &str, stream: bool, uri: &str,
                 source: &str, position: i64) {
     let buf: Vec<u8> = vec![];
     let mut cursor = Cursor::new(buf);
+
+    let _ = cursor.write(&[0, 0]);
     let _ = cursor.write_u8(TRACK_INFO_VERSION);
 
     write_string_and_incr(&mut cursor, title);
     write_string_and_incr(&mut cursor, author);
 
     //0, 0, 0, 0, 0, 4, 7, -->239<--?
-    let _ = cursor.write_i64::<BigEndian>(duration);
+    let _ = cursor.write_i64::<BigEndian>(length);
 
     move_cursor(&mut cursor, 3);
     write_string(&mut cursor, identifier);
 
     move_cursor(&mut cursor, 1);
     if stream {
-        let _ = cursor.write(&[1]);
-    } else {
         let _ = cursor.write(&[0]);
+    } else {
+        let _ = cursor.write(&[1]);
     }
 
     write_string_and_incr(&mut cursor, uri);
@@ -118,16 +143,9 @@ fn encode_track(title: &str, author: &str, duration: i64, identifier: &str, stre
 
     let _ = new_buf.write_all(cursor.get_ref());
 
-    println!("encode_track new_buf={:?}", new_buf);
+    //println!("encode_track new_buf={:?}", new_buf);
 
-    /*
-    prefix with size | flags << 30
-
-    public void commitMessage(int flags) throws IOException {
-      dataOutputStream.writeInt(messageByteOutput.size() | flags << 30);
-      messageByteOutput.writeTo(outputStream);
-    }
-    */
+    write_file("done.dab", &cursor.get_ref());
 }
 
 fn decode_track(cursor: &mut Cursor<Vec<u8>>) {
@@ -157,7 +175,7 @@ fn decode_track(cursor: &mut Cursor<Vec<u8>>) {
     println!("decode_track length={} author={}", length, author);
 
     let duration = cursor.read_i64::<BigEndian>().unwrap();
-    println!("decode_track duration={}", duration);
+    println!("decode_track length={}", length);
 
     // 3 bytes that might be java internal again
     move_cursor(cursor, 3);
@@ -188,7 +206,7 @@ fn decode_track(cursor: &mut Cursor<Vec<u8>>) {
 }
 
 fn post_tick(body: &[u8], size: usize) -> Cursor<Vec<u8>> {
-    let mut resp = Client::new().post(URL).body(Body::BufBody(body, size)).send().unwrap();
+    let mut resp = Client::new().post(URL).header(hyper::header::ContentType::json()).body(Body::BufBody(body, size)).send().unwrap();
     let mut body = vec![];
     let _ = resp.read_to_end(&mut body);
     Cursor::new(body)
@@ -209,4 +227,39 @@ fn decode_statistics(cursor: &mut Cursor<Vec<u8>>) {
     process_cpu_usage={}", playing_track_count, total_track_count, system_cpu_usage,
              process_cpu_usage);
 
+}
+
+fn json_encode_track(title: &str, author: &str, length: i64, identifier: &str, stream: bool,
+                     uri: &str, source: &str, position: i64) -> Vec<u8> {
+    let mut buf = vec![];
+
+    let json = json!({
+        "executor_id": 69i64,
+        "title": title,
+        "author": author,
+        "length": length,
+        "identifier": identifier,
+        "is_stream": stream,
+        "source": source,
+        "volume": 100,
+        "resampling_quality": "LOW",
+        "opus_encoding_quality": 10,
+        "channel_count": 0,
+        "sample_rate": 0,
+        "chunk_sample_count": 0,
+        "codec": "",
+        "position": position
+    }).to_string();
+
+    let _ = buf.write_i32::<BigEndian>(json.len() as i32); // msg length
+    let _ = buf.write_i8(0); // type ordinal
+    let _ = buf.write_i8(1); // codec version
+
+    //let _ = buf.write_i8(0);
+    let _ = buf.write_i32::<BigEndian>(json.len() as i32);
+    let _ = buf.write(json.as_bytes());
+
+    println!("{}", json.len());
+
+    buf
 }

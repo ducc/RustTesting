@@ -1,25 +1,40 @@
-use std::ops::Deref;
+use std::rc::Rc;
 
-struct Dog {
+#[derive(Debug)]
+struct Animal {
     name: String,
-    age: u8,
-    owner: String,
 }
 
-impl Deref for Dog {
-    type Target = String;
+struct Zoo {
+    animals: Vec<Rc<Animal>>,
+}
 
-    fn deref(&self) -> &String {
-        &self.name
+impl Zoo {
+    fn add_animal(&mut self, animal: Animal) {
+        self.animals.push(Rc::new(animal));
+    }
+
+    fn get_animal(&self, name: &str) -> Rc<Animal> {
+        self.animals.iter().find(|a| a.name == name).unwrap().clone()
     }
 }
 
 fn main() {
-    let dog = Dog {
-        name: "Billy".to_owned(),
-        age: 4,
-        owner: "Jacob".to_owned(),
+    let mut zoo = Zoo {
+        animals: Vec::new(),
     };
 
-    println!("dog name: {}", *dog);
+    let lion = Animal { name: "Lion".to_owned(), };
+
+    zoo.add_animal(lion);
+
+    let lion = zoo.get_animal("Lion");
+    println!("lion = {:?} rc = {}", lion, Rc::strong_count(&lion));
+
+    {
+        let lion2 = zoo.get_animal("Lion");
+        println!("lion = {:?} rc = {}", lion2, Rc::strong_count(&lion));
+    }
+
+    println!("lion = {:?} rc = {}", lion, Rc::strong_count(&lion));
 }

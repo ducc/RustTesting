@@ -1,51 +1,25 @@
-trait Animal {
-    fn meme(&self);
-}
-
-trait AnimalFactory<T: Animal> {
-    fn new() -> T;
-}
+use std::ops::Deref;
 
 struct Dog {
-
+    name: String,
+    age: u8,
+    owner: String,
 }
 
-impl Animal for Dog {
-    fn meme(&self) {
-        println!("dogs like memes!");
+impl Deref for Dog {
+    type Target = String;
+
+    fn deref(&self) -> &String {
+        &self.name
     }
-}
-
-impl AnimalFactory<Dog> for Dog {
-    fn new() -> Dog {
-        Dog{}
-    }
-}
-
-struct Cat {
-
-}
-
-impl Animal for Cat {
-    fn meme(&self) {
-        println!("cats like memes!");
-    }
-}
-
-impl AnimalFactory<Cat> for Cat {
-    fn new() -> Cat {
-        Cat{}
-    }
-}
-
-fn run<T: Animal>(animal: T) {
-    animal.meme();
 }
 
 fn main() {
-    let dog = Dog::new();
-    run(dog);
+    let dog = Dog {
+        name: "Billy".to_owned(),
+        age: 4,
+        owner: "Jacob".to_owned(),
+    };
 
-    let cat = Cat::new();
-    run(cat);
+    println!("dog name: {}", *dog);
 }

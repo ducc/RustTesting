@@ -34,7 +34,7 @@ fn main() {
     //decode_track(&mut enc_cursor);
 
     // encoding an audio track
-    /*encode_track(
+    encode_track(
         "Alan Walker - Fade [NCS Release]", // title
         "NCS", // author
         264175, // length
@@ -43,7 +43,7 @@ fn main() {
         "https://soundcloud.com/nocopyrightsounds/alan-walker-fade-ncs-release", // uri
         "soundcloud", // source
         0 // position
-    );*/
+    );
 
     // sending an empty tick to remote node for statistics
     let mut buf = vec![];
@@ -61,8 +61,8 @@ fn main() {
         "soundcloud", // source
         0 // position
     );
-    println!("{:?}", encoded);
     let _ = encoded.write_i32::<BigEndian>(0);
+    println!("{:?}", encoded);
     let mut cursor = post_tick(&encoded, encoded.len());
 }
 
@@ -250,6 +250,8 @@ fn json_encode_track(title: &str, author: &str, length: i64, identifier: &str, s
         "codec": "",
         "position": position
     }).to_string();
+
+    println!("json: {}", json);
 
     let _ = buf.write_i32::<BigEndian>(json.len() as i32); // msg length
     let _ = buf.write_i8(0); // type ordinal

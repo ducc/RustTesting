@@ -2,14 +2,19 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
+	"fmt"
 )
 
 func main() {
 	bytes, err := ioutil.ReadFile("encoded.dab")
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
 		return
 	}
-	log.Println(bytes)
+	fmt.Print("[")
+	for _, b := range bytes {
+		fmt.Print(b)
+		fmt.Print(", ")
+	}
+	fmt.Print("]")
 }
